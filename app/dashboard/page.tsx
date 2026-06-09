@@ -68,12 +68,19 @@ export default function DashboardPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
+      credentials: "include",
     });
-    if (res.ok) {
-      setShowModal(false);
-      setForm({ company: "", role: "", jobUrl: "", salary: "", notes: "", status: "Applied" });
-      fetchApplications();
+    const payload = await res.json();
+
+    if (!res.ok) {
+      console.error("Failed to create application", payload);
+      alert(payload?.error || "Unable to add application");
+      return;
     }
+
+    setShowModal(false);
+    setForm({ company: "", role: "", jobUrl: "", salary: "", notes: "", status: "Applied" });
+    fetchApplications();
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
@@ -81,10 +88,13 @@ export default function DashboardPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
+      credentials: "include",
     });
 
+    const payload = await res.json();
     if (!res.ok) {
-      console.error("Failed to update application status");
+      console.error("Failed to update application status", payload);
+      alert(payload?.error || "Unable to update status");
       return;
     }
 
@@ -97,10 +107,15 @@ export default function DashboardPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this application?")) return;
 
-    const res = await fetch(`/api/applications/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/applications/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
 
+    const payload = await res.json();
     if (!res.ok) {
-      console.error("Failed to delete application");
+      console.error("Failed to delete application", payload);
+      alert(payload?.error || "Unable to delete application");
       return;
     }
 
