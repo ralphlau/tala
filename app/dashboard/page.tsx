@@ -17,12 +17,27 @@ interface Application {
 
 const STAGES = ["Applied", "Interview", "Offer", "Rejected"];
 
+const STAGE_COLORS: Record<string, string> = {
+  Applied: "text-blue-400",
+  Interview: "text-yellow-400",
+  Offer: "text-green-400",
+  Rejected: "text-red-400",
+};
+
+const STAGE_BORDER: Record<string, string> = {
+  Applied: "border-blue-500/30",
+  Interview: "border-yellow-500/30",
+  Offer: "border-green-500/30",
+  Rejected: "border-red-500/30",
+};
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [applications, setApplications] = useState<Application[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [form, setForm] = useState({
     company: "",
     role: "",
@@ -59,6 +74,23 @@ export default function DashboardPage() {
       setForm({ company: "", role: "", jobUrl: "", salary: "", notes: "", status: "Applied" });
       fetchApplications();
     }
+  };
+
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    await fetch(`/api/applications/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    setSelectedApp(null);
+    fetchApplications();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this application?")) return;
+    await fetch(`/api/applications/${id}`, { method: "DELETE" });
+    setSelectedApp(null);
+    fetchApplications();
   };
 
   const getByStage = (stage: string) =>
@@ -116,9 +148,12 @@ export default function DashboardPage() {
         {/* Kanban Board */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {STAGES.map((stage) => (
-            <div key={stage} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div
+              key={stage}
+              className={`bg-gray-900 border rounded-xl p-4 ${STAGE_BORDER[stage]}`}
+            >
               <h3 className="font-semibold text-white mb-4 flex items-center justify-between">
-                {stage}
+                <span className={STAGE_COLORS[stage]}>{stage}</span>
                 <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
                   {getByStage(stage).length}
                 </span>
@@ -128,7 +163,11 @@ export default function DashboardPage() {
                   <p className="text-gray-600 text-sm text-center pt-8">No applications yet</p>
                 ) : (
                   getByStage(stage).map((app) => (
-                    <div key={app.id} className="bg-gray-800 rounded-lg p-3 border border-gray-700 hover:border-gray-600 transition-colors cursor-pointer">
+                    <div
+                      key={app.id}
+                      onClick={() => setSelectedApp(app)}
+                      className="bg-gray-800 rounded-lg p-3 border border-gray-700 hover:border-gray-500 transition-colors cursor-pointer"
+                    >
                       <p className="font-medium text-white text-sm">{app.company}</p>
                       <p className="text-gray-400 text-xs mt-0.5">{app.role}</p>
                       {app.salary && (
@@ -232,6 +271,79 @@ export default function DashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Application Detail Modal */}
+      {selectedApp && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+          <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-white">{selectedApp.company}</h2>
+                <p className="text-gray-400 text-sm mt-0.5">{selectedApp.role}</p>
+              </div>
+              <button
+                onClick={() => setSelectedApp(null)}
+                className="text-gray-500 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              {selectedApp.salary && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Salary</span>
+                  <span className="text-green-400">{selectedApp.salary}</span>
+                </div>
+              )}
+              {selectedApp.jobUrl && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Job URL</span>
+                  <a href={selectedApp.jobUrl} target="_blank" className="text-blue-400 hover:underline truncate max-w-48">
+                    View Posting
+                  </a>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Applied</span>
+                <span className="text-white">{new Date(selectedApp.appliedDate).toLocaleDateString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Status</span>
+                <span className={STAGE_COLORS[selectedApp.status]}>{selectedApp.status}</span>
+              </div>
+              {selectedApp.notes && (
+                <div className="text-sm">
+                  <span className="text-gray-400 block mb-1">Notes</span>
+                  <p className="text-gray-300 bg-gray-800 rounded-lg p-3 text-xs">{selectedApp.notes}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <p className="text-gray-400 text-sm mb-2">Move to stage:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {STAGES.filter((s) => s !== selectedApp.status).map((stage) => (
+                  <button
+                    key={stage}
+                    onClick={() => handleStatusChange(selectedApp.id, stage)}
+                    className={`text-xs py-2 rounded-lg border transition-colors ${STAGE_BORDER[stage]} ${STAGE_COLORS[stage]} hover:bg-gray-800`}
+                  >
+                    {stage}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleDelete(selectedApp.id)}
+              className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 py-2.5 rounded-lg text-sm transition-colors"
+            >
+              Delete Application
+            </button>
           </div>
         </div>
       )}

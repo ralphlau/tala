@@ -4,64 +4,39 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export async function GET() {
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   const session = await getServerSession();
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+  const data = await request.json();
+
+  const application = await prisma.application.update({
+    where: { id: params.id },
+    data,
   });
 
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
-  const applications = await prisma.application.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json(applications);
+  return NextResponse.json(application);
 }
 
-export async function POST(request: Request) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   const session = await getServerSession();
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+  await prisma.application.delete({
+    where: { id: params.id },
   });
 
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
-  const { company, role, jobUrl, salary, notes, status } = await request.json();
-
-  if (!company || !role) {
-    return NextResponse.json(
-      { error: "Company and role are required" },
-      { status: 400 }
-    );
-  }
-
-  const application = await prisma.application.create({
-    data: {
-      userId: user.id,
-      company,
-      role,
-      jobUrl: jobUrl || null,
-      salary: salary || null,
-      notes: notes || null,
-      status: status || "Applied",
-    },
-  });
-
-  return NextResponse.json(application, { status: 201 });
+  return NextResponse.json({ message: "Deleted successfully" });
 }
