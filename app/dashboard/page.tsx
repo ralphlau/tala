@@ -194,7 +194,7 @@ export default function DashboardPage() {
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800"
+            className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800 pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-white mb-6">Add Application</h2>
@@ -290,7 +290,7 @@ export default function DashboardPage() {
           onClick={() => setSelectedApp(null)}
         >
           <div
-            className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800"
+            className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800 pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-6">
@@ -355,7 +355,7 @@ export default function DashboardPage() {
                     key={stage}
                     type="button"
                     onClick={() => handleStatusChange(selectedApp.id, stage)}
-                    className={`text-xs py-2 rounded-lg border transition-colors ${STAGE_BORDER[stage]} ${STAGE_COLORS[stage]} hover:bg-gray-800`}
+                    className={`w-full text-xs py-2 rounded-lg border transition-colors ${STAGE_BORDER[stage]} ${STAGE_COLORS[stage]} hover:bg-gray-800 cursor-pointer`}
                   >
                     {stage}
                   </button>
@@ -366,7 +366,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => handleDelete(selectedApp.id)}
-              className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 py-2.5 rounded-lg text-sm transition-colors"
+              className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 py-2.5 rounded-lg text-sm transition-colors cursor-pointer"
             >
               Delete Application
             </button>
