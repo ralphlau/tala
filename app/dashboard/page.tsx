@@ -112,6 +112,7 @@ export default function DashboardPage() {
           <h1 className="text-xl font-bold text-white">HireTrack</h1>
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={() => setShowModal(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
@@ -119,6 +120,7 @@ export default function DashboardPage() {
             </button>
             <span className="text-gray-400 text-sm">{session?.user?.name}</span>
             <button
+              type="button"
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
             >
@@ -187,8 +189,14 @@ export default function DashboardPage() {
 
       {/* Add Application Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800">
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-xl font-bold text-white mb-6">Add Application</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -277,14 +285,21 @@ export default function DashboardPage() {
 
       {/* Application Detail Modal */}
       {selectedApp && (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] px-4">
-          <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800">
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] px-4"
+          onClick={() => setSelectedApp(null)}
+        >
+          <div
+            className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold text-white">{selectedApp.company}</h2>
                 <p className="text-gray-400 text-sm mt-0.5">{selectedApp.role}</p>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedApp(null)}
                 className="text-gray-500 hover:text-white transition-colors"
               >
@@ -302,14 +317,21 @@ export default function DashboardPage() {
               {selectedApp.jobUrl && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Job URL</span>
-                  <a href={selectedApp.jobUrl} target="_blank" className="text-blue-400 hover:underline truncate max-w-48">
+                  <a
+                    href={selectedApp.jobUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-400 hover:underline truncate max-w-48"
+                  >
                     View Posting
                   </a>
                 </div>
               )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Applied</span>
-                <span className="text-white">{new Date(selectedApp.appliedDate).toLocaleDateString()}</span>
+                <span className="text-white">
+                  {new Date(selectedApp.appliedDate).toLocaleDateString()}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Status</span>
@@ -318,7 +340,9 @@ export default function DashboardPage() {
               {selectedApp.notes && (
                 <div className="text-sm">
                   <span className="text-gray-400 block mb-1">Notes</span>
-                  <p className="text-gray-300 bg-gray-800 rounded-lg p-3 text-xs">{selectedApp.notes}</p>
+                  <p className="text-gray-300 bg-gray-800 rounded-lg p-3 text-xs">
+                    {selectedApp.notes}
+                  </p>
                 </div>
               )}
             </div>
@@ -327,19 +351,20 @@ export default function DashboardPage() {
               <p className="text-gray-400 text-sm mb-2">Move to stage:</p>
               <div className="grid grid-cols-2 gap-2">
                 {STAGES.filter((s) => s !== selectedApp.status).map((stage) => (
-  <button
-    key={stage}
-    type="button"
-    onClick={() => handleStatusChange(selectedApp.id, stage)}
-    className={`text-xs py-2 rounded-lg border transition-colors ${STAGE_BORDER[stage]} ${STAGE_COLORS[stage]} hover:bg-gray-800`}
-  >
-    {stage}
-  </button>
-))}
+                  <button
+                    key={stage}
+                    type="button"
+                    onClick={() => handleStatusChange(selectedApp.id, stage)}
+                    className={`text-xs py-2 rounded-lg border transition-colors ${STAGE_BORDER[stage]} ${STAGE_COLORS[stage]} hover:bg-gray-800`}
+                  >
+                    {stage}
+                  </button>
+                ))}
               </div>
             </div>
 
             <button
+              type="button"
               onClick={() => handleDelete(selectedApp.id)}
               className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 py-2.5 rounded-lg text-sm transition-colors"
             >
