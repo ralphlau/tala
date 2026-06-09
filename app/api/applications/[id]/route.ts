@@ -7,9 +7,10 @@ const prisma = new PrismaClient();
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -26,7 +27,7 @@ export async function PATCH(
 
     // Verify the application belongs to the user
     const existingApp = await prisma.application.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingApp || existingApp.userId !== user.id) {
@@ -42,7 +43,7 @@ export async function PATCH(
     if ("salary" in data) updateData.salary = data.salary;
 
     const application = await prisma.application.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 
@@ -55,9 +56,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -74,7 +76,7 @@ export async function DELETE(
 
     // Verify the application belongs to the user
     const application = await prisma.application.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!application || application.userId !== user.id) {
@@ -82,7 +84,7 @@ export async function DELETE(
     }
 
     await prisma.application.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: "Deleted successfully" });
