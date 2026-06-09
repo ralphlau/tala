@@ -277,7 +277,7 @@ export default function DashboardPage() {
 
       {/* Application Detail Modal */}
       {selectedApp && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] px-4">
           <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800">
             <div className="flex items-start justify-between mb-6">
               <div>
