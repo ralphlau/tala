@@ -77,20 +77,35 @@ export default function DashboardPage() {
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
-    await fetch(`/api/applications/${id}`, {
+    const res = await fetch(`/api/applications/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
+
+    if (!res.ok) {
+      console.error("Failed to update application status");
+      return;
+    }
+
+    setApplications((prev) =>
+      prev.map((app) => (app.id === id ? { ...app, status: newStatus } : app))
+    );
     setSelectedApp(null);
-    fetchApplications();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this application?")) return;
-    await fetch(`/api/applications/${id}`, { method: "DELETE" });
+
+    const res = await fetch(`/api/applications/${id}`, { method: "DELETE" });
+
+    if (!res.ok) {
+      console.error("Failed to delete application");
+      return;
+    }
+
+    setApplications((prev) => prev.filter((app) => app.id !== id));
     setSelectedApp(null);
-    fetchApplications();
   };
 
   const getByStage = (stage: string) =>
