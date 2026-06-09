@@ -327,14 +327,15 @@ export default function DashboardPage() {
               <p className="text-gray-400 text-sm mb-2">Move to stage:</p>
               <div className="grid grid-cols-2 gap-2">
                 {STAGES.filter((s) => s !== selectedApp.status).map((stage) => (
-                  <button
-                    key={stage}
-                    onClick={() => handleStatusChange(selectedApp.id, stage)}
-                    className={`text-xs py-2 rounded-lg border transition-colors ${STAGE_BORDER[stage]} ${STAGE_COLORS[stage]} hover:bg-gray-800`}
-                  >
-                    {stage}
-                  </button>
-                ))}
+  <button
+    key={stage}
+    type="button"
+    onClick={() => handleStatusChange(selectedApp.id, stage)}
+    className={`text-xs py-2 rounded-lg border transition-colors ${STAGE_BORDER[stage]} ${STAGE_COLORS[stage]} hover:bg-gray-800`}
+  >
+    {stage}
+  </button>
+))}
               </div>
             </div>
 
