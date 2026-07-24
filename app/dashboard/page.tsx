@@ -1,10 +1,39 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  closestCorners,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  BarChart3,
+  Briefcase,
+  CalendarDays,
+  LayoutGrid,
+  LogOut,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ToastContainer, useToast } from "@/hooks/useToast";
+import { STAGE_CONFIG, type Priority, type Stage } from "@/types";
 
 interface Application {
   id: string;
@@ -15,38 +44,154 @@ interface Application {
   status: string;
   notes?: string;
   appliedDate: string;
+  workType?: string;
+  priority?: string;
+  interviewDate?: string;
 }
 
-const STAGES = ["Applied", "Interview", "Offer", "Rejected"];
+const STAGES: Stage[] = ["Applied", "Interview", "Offer", "Rejected"];
 
-const STAGE_COLORS: Record<string, string> = {
-  Applied: "text-blue-400",
-  Interview: "text-yellow-400",
-  Offer: "text-green-400",
-  Rejected: "text-red-400",
-};
+function getInitials(company: string) {
+  const fallback = company.trim().slice(0, 2).toUpperCase();
+  return fallback || "AT";
+}
 
-const STAGE_BORDER: Record<string, string> = {
-  Applied: "border-blue-500/30",
-  Interview: "border-yellow-500/30",
-  Offer: "border-green-500/30",
-  Rejected: "border-red-500/30",
-};
+function getAvatarColor(company: string) {
+  const values = [...company].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const palette = [
+    "from-sky-500 to-cyan-400",
+    "from-violet-500 to-fuchsia-400",
+    "from-emerald-500 to-lime-400",
+    "from-amber-500 to-orange-400",
+    "from-rose-500 to-pink-400",
+  ];
+  return palette[values % palette.length];
+}
+
+function SortableApplicationCard({
+  app,
+  onSelect,
+  stage,
+}: {
+  app: Application;
+  onSelect: (application: Application) => void;
+  stage: Stage;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: app.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.85 : 1,
+  };
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      data-testid={`application-card-${app.id}`}
+      onClick={() => onSelect(app)}
+      style={style}
+      className="w-full rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-left transition hover:border-sky-400/30 hover:bg-slate-800"
+      {...attributes}
+      {...listeners}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${getAvatarColor(app.company)} text-xs font-semibold text-white`}>
+            {getInitials(app.company)}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white">{app.company}</p>
+            <p className="text-xs text-slate-400">{app.role}</p>
+          </div>
+        </div>
+        <StatusBadge kind="stage" value={stage} />
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-400">
+          {app.workType ?? "Work type TBD"}
+        </span>
+        <StatusBadge kind="priority" value={(app.priority as Priority) ?? "Medium"} />
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+        <CalendarDays className="h-3.5 w-3.5" />
+        {new Date(app.appliedDate).toLocaleDateString()}
+      </div>
+    </button>
+  );
+}
+
+function StageColumn({
+  stage,
+  applications,
+  onSelect,
+}: {
+  stage: Stage;
+  applications: Application[];
+  onSelect: (application: Application) => void;
+}) {
+  const config = STAGE_CONFIG[stage];
+  const { setNodeRef, isOver } = useDroppable({ id: stage });
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-testid={`stage-column-${stage.toLowerCase()}`}
+      className={`rounded-2xl border ${config.border} ${isOver ? "bg-sky-500/10" : "bg-slate-950/70"} p-3`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`h-2.5 w-2.5 rounded-full ${config.dot}`} />
+          <h3 className={`text-sm font-semibold ${config.accent}`}>{stage}</h3>
+        </div>
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-400">
+          {applications.length}
+        </span>
+      </div>
+
+      <SortableContext items={applications.map((app) => app.id)} strategy={verticalListSortingStrategy}>
+        <div className="mt-3 space-y-2">
+          {applications.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/10 bg-slate-900/60 px-3 py-6 text-center text-sm text-slate-500">
+              No applications yet
+            </div>
+          ) : (
+            applications.map((app) => (
+              <SortableApplicationCard key={app.id} app={app} onSelect={onSelect} stage={stage} />
+            ))
+          )}
+        </div>
+      </SortableContext>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { toasts, addToast, dismissToast } = useToast();
   const [applications, setApplications] = useState<Application[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 },
+    })
+  );
   const [form, setForm] = useState({
     company: "",
     role: "",
     jobUrl: "",
     salary: "",
     notes: "",
-    status: "Applied",
+    status: "Applied" as Stage,
   });
 
   useEffect(() => {
@@ -54,260 +199,460 @@ export default function DashboardPage() {
   }, [status, router]);
 
   useEffect(() => {
-    if (status === "authenticated") fetchApplications();
+    if (status === "authenticated") {
+      void fetchApplications();
+    }
   }, [status]);
 
   const fetchApplications = async () => {
-    const res = await fetch("/api/applications");
-    const data = await res.json();
-    setApplications(data);
-    setLoading(false);
+    try {
+      setLoading(true);
+      const res = await fetch("/api/applications");
+      const data = await res.json();
+      setApplications(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+      addToast({
+        title: "Unable to refresh applications",
+        description: "Please try again in a moment.",
+        tone: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/applications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-      credentials: "include",
-    });
-    const payload = await res.json();
+    setIsSubmitting(true);
 
-    if (!res.ok) {
-      console.error("Failed to create application", payload);
-      alert(payload?.error || "Unable to add application");
-      return;
+    try {
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          company: form.company.trim(),
+          role: form.role.trim(),
+          salary: form.salary.trim() || null,
+          notes: form.notes.trim() || null,
+        }),
+        credentials: "include",
+      });
+      const payload = await res.json();
+
+      if (!res.ok) {
+        throw new Error(payload?.error || "Unable to add application");
+      }
+
+      setShowModal(false);
+      setForm({
+        company: "",
+        role: "",
+        jobUrl: "",
+        salary: "",
+        notes: "",
+        status: "Applied",
+      });
+      setApplications((prev) => [payload, ...prev]);
+      addToast({
+        title: "Application added",
+        description: `${payload.company} is now tracked in your pipeline.`,
+        tone: "success",
+      });
+    } catch (error) {
+      console.error(error);
+      addToast({
+        title: "Unable to add application",
+        description: error instanceof Error ? error.message : "Please try again.",
+        tone: "error",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setShowModal(false);
-    setForm({ company: "", role: "", jobUrl: "", salary: "", notes: "", status: "Applied" });
-    fetchApplications();
   };
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
-    const res = await fetch(`/api/applications/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
-      credentials: "include",
-    });
+  const handleStatusChange = async (id: string, newStatus: Stage) => {
+    try {
+      const res = await fetch(`/api/applications/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+        credentials: "include",
+      });
 
-    const payload = await res.json();
-    if (!res.ok) {
-      console.error("Failed to update application status", payload);
-      alert(payload?.error || "Unable to update status");
-      return;
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.error || "Unable to update status");
+      }
+
+      setApplications((prev) =>
+        prev.map((app) => (app.id === id ? { ...app, status: newStatus } : app))
+      );
+      setSelectedApp(null);
+      addToast({
+        title: "Stage updated",
+        description: `${payload.company} moved to ${newStatus}.`,
+        tone: "info",
+      });
+    } catch (error) {
+      console.error(error);
+      addToast({
+        title: "Unable to update stage",
+        description: error instanceof Error ? error.message : "Please try again.",
+        tone: "error",
+      });
     }
-
-    setApplications((prev) =>
-      prev.map((app) => (app.id === id ? { ...app, status: newStatus } : app))
-    );
-    setSelectedApp(null);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this application?")) return;
+    if (!window.confirm("Are you sure you want to delete this application?")) return;
 
-    const res = await fetch(`/api/applications/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+    try {
+      const res = await fetch(`/api/applications/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
 
-    const payload = await res.json();
-    if (!res.ok) {
-      console.error("Failed to delete application", payload);
-      alert(payload?.error || "Unable to delete application");
-      return;
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.error || "Unable to delete application");
+      }
+
+      setApplications((prev) => prev.filter((app) => app.id !== id));
+      setSelectedApp(null);
+      addToast({
+        title: "Application removed",
+        description: "The record has been removed from your pipeline.",
+        tone: "success",
+      });
+    } catch (error) {
+      console.error(error);
+      addToast({
+        title: "Unable to delete application",
+        description: error instanceof Error ? error.message : "Please try again.",
+        tone: "error",
+      });
     }
-
-    setApplications((prev) => prev.filter((app) => app.id !== id));
-    setSelectedApp(null);
   };
 
-  const getByStage = (stage: string) =>
-    applications.filter((a) => a.status === stage);
+  const getByStage = (stage: Stage) => applications.filter((app) => app.status === stage);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = String(active.id);
+    const targetStage = String(over.id) as Stage;
+    const draggedApplication = applications.find((app) => app.id === activeId);
+
+    if (!draggedApplication || draggedApplication.status === targetStage) return;
+
+    await handleStatusChange(activeId, targetStage);
+  };
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.16),_transparent_35%),linear-gradient(135deg,_#020617_0%,_#0f172a_100%)] px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 lg:flex-row">
+          <div className="hidden w-72 shrink-0 rounded-3xl border border-white/10 bg-slate-900/70 p-5 lg:block">
+            <div className="h-3 w-24 animate-pulse rounded-full bg-slate-700" />
+            <div className="mt-6 space-y-3">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="h-10 animate-pulse rounded-2xl bg-slate-800" />
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 space-y-6">
+            <div className="h-36 animate-pulse rounded-3xl border border-white/10 bg-slate-900/70" />
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="h-28 animate-pulse rounded-2xl border border-white/10 bg-slate-900/70" />
+              ))}
+            </div>
+            <div className="grid gap-4 xl:grid-cols-4">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="h-64 animate-pulse rounded-3xl border border-white/10 bg-slate-900/70" />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Navbar */}
-      <nav className="bg-gray-900 border-b border-gray-800 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">HireTrack</h1>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => setShowModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
-              + Add Application
-            </button>
-            <span className="text-gray-400 text-sm">{session?.user?.name}</span>
-            <button
-              type="button"
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-10">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          {[
-            { label: "Total Applied", value: applications.length, color: "text-blue-400" },
-            { label: "Interviews", value: getByStage("Interview").length, color: "text-yellow-400" },
-            { label: "Offers", value: getByStage("Offer").length, color: "text-green-400" },
-            { label: "Rejected", value: getByStage("Rejected").length, color: "text-red-400" },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <p className="text-gray-400 text-sm">{stat.label}</p>
-              <p className={`text-3xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Kanban Board */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {STAGES.map((stage) => (
-            <div
-              key={stage}
-              className={`bg-gray-900 border rounded-xl p-4 ${STAGE_BORDER[stage]}`}
-            >
-              <h3 className="font-semibold text-white mb-4 flex items-center justify-between">
-                <span className={STAGE_COLORS[stage]}>{stage}</span>
-                <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
-                  {getByStage(stage).length}
-                </span>
-              </h3>
-              <div className="space-y-3 min-h-32">
-                {getByStage(stage).length === 0 ? (
-                  <p className="text-gray-600 text-sm text-center pt-8">No applications yet</p>
-                ) : (
-                  getByStage(stage).map((app) => (
-                    <div
-                      key={app.id}
-                      onClick={() => setSelectedApp(app)}
-                      className="bg-gray-800 rounded-lg p-3 border border-gray-700 hover:border-gray-500 transition-colors cursor-pointer"
-                    >
-                      <p className="font-medium text-white text-sm">{app.company}</p>
-                      <p className="text-gray-400 text-xs mt-0.5">{app.role}</p>
-                      {app.salary && (
-                        <p className="text-green-400 text-xs mt-1">{app.salary}</p>
-                      )}
-                      <p className="text-gray-600 text-xs mt-2">
-                        {new Date(app.appliedDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))
-                )}
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.16),_transparent_35%),linear-gradient(135deg,_#020617_0%,_#0f172a_100%)] px-4 py-4 text-slate-100 sm:px-6 lg:px-8 lg:py-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 lg:flex-row">
+        <aside className="hidden w-72 shrink-0 rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-[0_24px_80px_-24px_rgba(2,6,23,0.95)] backdrop-blur lg:flex lg:flex-col">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-violet-500 text-sm font-semibold text-white">
+                HT
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">HireTrack</p>
+                <p className="text-sm text-slate-400">Portfolio dashboard</p>
               </div>
             </div>
-          ))}
-        </div>
-      </main>
+            <nav className="mt-8 space-y-2">
+              {[
+                { label: "Overview", icon: LayoutGrid, active: true },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
+                      item.active
+                        ? "bg-white/10 text-white"
+                        : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
 
-      {/* Add Application Modal */}
+          <div className="mt-auto rounded-2xl border border-sky-400/20 bg-sky-500/10 p-4">
+            <p className="flex items-center gap-2 text-sm font-medium text-sky-200">
+              <Sparkles className="h-4 w-4" /> QA-ready workflow
+            </p>
+            <p className="mt-2 text-sm text-slate-300">
+              Built with stronger review loops, clearer stages, and polished UX for interviews.
+            </p>
+          </div>
+        </aside>
+
+        <main className="flex-1">
+          <header className="rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-[0_24px_80px_-24px_rgba(2,6,23,0.95)] backdrop-blur">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm text-slate-400">Good evening</p>
+                <h1 className="mt-1 text-3xl font-semibold tracking-tight text-white">
+                  Welcome back, {session?.user?.name ?? "there"}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm text-slate-400">
+                  Keep your hiring pipeline organized with a calmer, more intentional experience.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {session?.user?.role === "admin" && (
+                  <button
+                    type="button"
+                    data-testid="admin-link-button"
+                    onClick={() => router.push("/admin")}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    Manage users
+                  </button>
+                )}
+                <button
+                  type="button"
+                  data-testid="add-application-button"
+                  onClick={() => setShowModal(true)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-400"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add application
+                </button>
+                <button
+                  type="button"
+                  data-testid="sign-out-button"
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign out
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Applications"
+              value={applications.length}
+              caption="Tracked in your active pipeline"
+              icon={Briefcase}
+              accent="bg-sky-500/15 text-sky-300"
+            />
+            <StatCard
+              label="Interviews"
+              value={getByStage("Interview").length}
+              caption="Moving into conversations"
+              icon={CalendarDays}
+              accent="bg-amber-500/15 text-amber-300"
+            />
+            <StatCard
+              label="Offers"
+              value={getByStage("Offer").length}
+              caption="Positive momentum"
+              icon={Sparkles}
+              accent="bg-emerald-500/15 text-emerald-300"
+            />
+            <StatCard
+              label="Rejected"
+              value={getByStage("Rejected").length}
+              caption="Closed loops"
+              icon={BarChart3}
+              accent="bg-rose-500/15 text-rose-300"
+            />
+          </section>
+
+          <section className="mt-6 rounded-3xl border border-white/10 bg-slate-900/70 p-4 shadow-[0_24px_80px_-24px_rgba(2,6,23,0.95)] backdrop-blur sm:p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Pipeline overview</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  A clearer view of each hiring stage and the most recent activity.
+                </p>
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400">
+                Stage flow
+              </div>
+            </div>
+
+            <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+              <div className="grid gap-4 xl:grid-cols-4">
+                {STAGES.map((stage) => (
+                  <StageColumn
+                    key={stage}
+                    stage={stage}
+                    applications={getByStage(stage)}
+                    onSelect={setSelectedApp}
+                  />
+                ))}
+              </div>
+            </DndContext>
+          </section>
+        </main>
+      </div>
+
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4"
+          data-testid="application-modal"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm"
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800 pointer-events-auto"
-            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-7 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-white mb-6">Add Application</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Company *</label>
+                <h2 className="text-xl font-semibold text-white">Add application</h2>
+                <p className="mt-1 text-sm text-slate-400">Capture the next opportunity in seconds.</p>
+              </div>
+              <button
+                type="button"
+                data-testid="close-application-modal"
+                onClick={() => setShowModal(false)}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              <div>
+                <label className="mb-1 block text-sm text-slate-300" htmlFor="application-company">Company *</label>
                 <input
+                  id="application-company"
+                  data-testid="application-company"
                   type="text"
                   value={form.company}
-                  onChange={(e) => setForm({ ...form, company: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
-                  placeholder="e.g. Cloudstaff Philippines"
+                  onChange={(event) => setForm({ ...form, company: event.target.value })}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white outline-none ring-0 placeholder:text-slate-500 focus:border-sky-400"
+                  placeholder="e.g. Stripe"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Role *</label>
+                <label className="mb-1 block text-sm text-slate-300" htmlFor="application-role">Role *</label>
                 <input
+                  id="application-role"
+                  data-testid="application-role"
                   type="text"
                   value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+                  onChange={(event) => setForm({ ...form, role: event.target.value })}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white outline-none ring-0 placeholder:text-slate-500 focus:border-sky-400"
                   placeholder="e.g. QA Engineer"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Job URL</label>
+                <label className="mb-1 block text-sm text-slate-300" htmlFor="application-jobUrl">Job URL</label>
                 <input
+                  id="application-jobUrl"
+                  data-testid="application-jobUrl"
                   type="url"
                   value={form.jobUrl}
-                  onChange={(e) => setForm({ ...form, jobUrl: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+                  onChange={(event) => setForm({ ...form, jobUrl: event.target.value })}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white outline-none ring-0 placeholder:text-slate-500 focus:border-sky-400"
                   placeholder="https://..."
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Salary</label>
+                <label className="mb-1 block text-sm text-slate-300" htmlFor="application-salary">Salary</label>
                 <input
+                  id="application-salary"
+                  data-testid="application-salary"
                   type="text"
                   value={form.salary}
-                  onChange={(e) => setForm({ ...form, salary: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+                  onChange={(event) => setForm({ ...form, salary: event.target.value })}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white outline-none ring-0 placeholder:text-slate-500 focus:border-sky-400"
                   placeholder="e.g. 25,000"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Status</label>
+                <label className="mb-1 block text-sm text-slate-300" htmlFor="application-status">Status</label>
                 <select
+                  id="application-status"
+                  data-testid="application-status"
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+                  onChange={(event) => setForm({ ...form, status: event.target.value as Stage })}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white outline-none focus:border-sky-400"
                 >
-                  {STAGES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                  {STAGES.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {stage}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Notes</label>
+                <label className="mb-1 block text-sm text-slate-300" htmlFor="application-notes">Notes</label>
                 <textarea
+                  id="application-notes"
+                  data-testid="application-notes"
                   value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
-                  placeholder="Any notes about this application..."
-                  rows={3}
+                  onChange={(event) => setForm({ ...form, notes: event.target.value })}
+                  className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-sky-400"
+                  placeholder="Anything worth remembering?"
                 />
               </div>
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
+                  data-testid="cancel-application"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 border border-gray-700 text-gray-300 hover:text-white py-2.5 rounded-lg text-sm transition-colors"
+                  className="flex-1 rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+                  data-testid="save-application"
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-2xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Add Application
+                  {isSubmitting ? "Saving..." : "Save application"}
                 </button>
               </div>
             </form>
@@ -315,79 +660,72 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Application Detail Modal */}
       {selectedApp && (
         <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] px-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm"
           onClick={() => setSelectedApp(null)}
         >
           <div
-            className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-800 pointer-events-auto"
-            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-7 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between mb-6">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-white">{selectedApp.company}</h2>
-                <p className="text-gray-400 text-sm mt-0.5">{selectedApp.role}</p>
+                <p className="text-sm text-slate-400">Selected application</p>
+                <h2 className="mt-1 text-xl font-semibold text-white">{selectedApp.company}</h2>
+                <p className="mt-1 text-sm text-slate-400">{selectedApp.role}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedApp(null)}
-                className="text-gray-500 hover:text-white transition-colors"
+                className="rounded-full p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 mb-6">
-              {selectedApp.salary && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Salary</span>
-                  <span className="text-green-400">{selectedApp.salary}</span>
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-300">
+                <span>Status</span>
+                <StatusBadge kind="stage" value={selectedApp.status as Stage} />
+              </div>
+              {selectedApp.salary ? (
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-300">
+                  <span>Salary</span>
+                  <span className="text-emerald-300">{selectedApp.salary}</span>
                 </div>
-              )}
-              {selectedApp.jobUrl && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Job URL</span>
+              ) : null}
+              {selectedApp.jobUrl ? (
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-300">
+                  <span>Job URL</span>
                   <a
                     href={selectedApp.jobUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-blue-400 hover:underline truncate max-w-48"
+                    className="max-w-40 truncate text-sky-300 hover:underline"
                   >
-                    View Posting
+                    View posting
                   </a>
                 </div>
-              )}
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Applied</span>
-                <span className="text-white">
-                  {new Date(selectedApp.appliedDate).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Status</span>
-                <span className={STAGE_COLORS[selectedApp.status]}>{selectedApp.status}</span>
-              </div>
-              {selectedApp.notes && (
-                <div className="text-sm">
-                  <span className="text-gray-400 block mb-1">Notes</span>
-                  <p className="text-gray-300 bg-gray-800 rounded-lg p-3 text-xs">
-                    {selectedApp.notes}
-                  </p>
+              ) : null}
+              {selectedApp.notes ? (
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-300">
+                  <p className="mb-1 text-slate-400">Notes</p>
+                  <p>{selectedApp.notes}</p>
                 </div>
-              )}
+              ) : null}
             </div>
 
-            <div className="mb-4">
-              <p className="text-gray-400 text-sm mb-2">Move to stage:</p>
+            <div className="mt-6">
+              <p className="mb-2 text-sm text-slate-400">Move to stage</p>
               <div className="grid grid-cols-2 gap-2">
-                {STAGES.filter((s) => s !== selectedApp.status).map((stage) => (
+                {STAGES.filter((stage) => stage !== selectedApp.status).map((stage) => (
                   <button
                     key={stage}
                     type="button"
+                    data-testid={`move-to-${stage.toLowerCase()}-button`}
                     onClick={() => handleStatusChange(selectedApp.id, stage)}
-                    className={`w-full text-xs py-2 rounded-lg border transition-colors ${STAGE_BORDER[stage]} ${STAGE_COLORS[stage]} hover:bg-gray-800 cursor-pointer`}
+                    className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400/40 hover:bg-sky-500/10 hover:text-sky-200"
                   >
                     {stage}
                   </button>
@@ -397,14 +735,17 @@ export default function DashboardPage() {
 
             <button
               type="button"
+              data-testid="delete-application-button"
               onClick={() => handleDelete(selectedApp.id)}
-              className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 py-2.5 rounded-lg text-sm transition-colors cursor-pointer"
+              className="mt-6 w-full rounded-2xl border border-rose-400/20 bg-rose-500/10 px-3 py-2.5 text-sm font-medium text-rose-200 transition hover:bg-rose-500/20"
             >
-              Delete Application
+              Delete application
             </button>
           </div>
         </div>
       )}
+
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

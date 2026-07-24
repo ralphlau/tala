@@ -45,15 +45,20 @@ export default function RegisterPage() {
         <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800">
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">
+              <div
+                data-testid="register-error"
+                className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm"
+              >
                 {error}
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2" htmlFor="register-name">
                 Full Name
               </label>
               <input
+                id="register-name"
+                data-testid="register-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -63,10 +68,12 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2" htmlFor="register-email">
                 Email
               </label>
               <input
+                id="register-email"
+                data-testid="register-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -76,10 +83,12 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2" htmlFor="register-password">
                 Password
               </label>
               <input
+                id="register-password"
+                data-testid="register-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -90,6 +99,7 @@ export default function RegisterPage() {
             </div>
             <button
               type="submit"
+              data-testid="register-submit"
               disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors"
             >
