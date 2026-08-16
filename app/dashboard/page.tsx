@@ -388,7 +388,7 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-violet-500 text-sm font-semibold text-white">
-                HT
+                TA
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">TALA</p>
@@ -397,19 +397,25 @@ export default function DashboardPage() {
             </div>
             <nav className="mt-8 space-y-2">
               {[
-                { label: "Overview", icon: LayoutGrid, active: true },
+                { label: "Overview", icon: LayoutGrid, active: true, href: null },
+                { label: "Reports", icon: BarChart3, active: false, href: "/reports" },
               ].map((item) => {
                 const Icon = item.icon;
+                const className = `flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
+                  item.active
+                    ? "bg-white/10 text-white"
+                    : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                }`;
+                if (item.href) {
+                  return (
+                    <a key={item.label} href={item.href} className={className}>
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </a>
+                  );
+                }
                 return (
-                  <button
-                    key={item.label}
-                    type="button"
-                    className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
-                      item.active
-                        ? "bg-white/10 text-white"
-                        : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-                    }`}
-                  >
+                  <button key={item.label} type="button" className={className}>
                     <Icon className="h-4 w-4" />
                     {item.label}
                   </button>
