@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ShieldCheck, Trash2, ArrowLeft } from "lucide-react";
+import { ShieldCheck, Trash2, ArrowLeft, Users, Briefcase, TrendingUp } from "lucide-react";
 import { ToastContainer, useToast } from "@/hooks/useToast";
 import type { Role } from "@/types";
 
@@ -18,12 +18,20 @@ interface AdminUser {
   _count: { applications: number };
 }
 
+interface PlatformStats {
+  totalUsers: number;
+  totalAdmins: number;
+  totalApplications: number;
+  stageCounts: Record<string, number>;
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { toasts, addToast, dismissToast } = useToast();
 
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -41,8 +49,19 @@ export default function AdminPage() {
     }
 
     fetchUsers();
+    fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session]);
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch("/api/admin/stats", { credentials: "include" });
+      if (!res.ok) return;
+      setStats(await res.json());
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -137,6 +156,41 @@ export default function AdminPage() {
             <p className="text-sm text-slate-400">Manage accounts and admin access</p>
           </div>
         </div>
+
+        {stats && (
+          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Users className="h-4 w-4" />
+                <span className="text-sm">Total Users</span>
+              </div>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {stats.totalUsers}{" "}
+                <span className="text-sm font-normal text-slate-500">
+                  ({stats.totalAdmins} admin{stats.totalAdmins === 1 ? "" : "s"})
+                </span>
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Briefcase className="h-4 w-4" />
+                <span className="text-sm">Total Applications</span>
+              </div>
+              <p className="mt-2 text-2xl font-semibold text-white">{stats.totalApplications}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
+              <div className="flex items-center gap-2 text-slate-400">
+                <TrendingUp className="h-4 w-4" />
+                <span className="text-sm">Platform Offer Rate</span>
+              </div>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {stats.totalApplications > 0
+                  ? `${Math.round((stats.stageCounts.Offer / stats.totalApplications) * 100)}%`
+                  : "—"}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/70">
           {loading ? (

@@ -24,6 +24,8 @@ import {
   BarChart3,
   Briefcase,
   CalendarDays,
+  Download,
+  History,
   LayoutGrid,
   LogOut,
   Plus,
@@ -34,6 +36,13 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ToastContainer, useToast } from "@/hooks/useToast";
 import { STAGE_CONFIG, type Priority, type Stage } from "@/types";
+
+interface StatusChange {
+  id: string;
+  fromStatus: string | null;
+  toStatus: string;
+  changedAt: string;
+}
 
 interface Application {
   id: string;
@@ -46,7 +55,8 @@ interface Application {
   appliedDate: string;
   workType?: string;
   priority?: string;
-  interviewDate?: string;
+  interviewDate?: string | null;
+  statusChanges?: StatusChange[];
 }
 
 const STAGES: Stage[] = ["Applied", "Interview", "Offer", "Rejected"];
@@ -176,6 +186,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const { toasts, addToast, dismissToast } = useToast();
   const [applications, setApplications] = useState<Application[]>([]);
+  const [reminders, setReminders] = useState<
+    { id: string; date: string; company: string; role: string }[]
+  >([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
@@ -201,8 +214,19 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status === "authenticated") {
       void fetchApplications();
+      void fetchReminders();
     }
   }, [status]);
+
+  const fetchReminders = async () => {
+    try {
+      const res = await fetch("/api/reminders");
+      const data = await res.json();
+      setReminders(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchApplications = async () => {
     try {
@@ -286,9 +310,7 @@ export default function DashboardPage() {
         throw new Error(payload?.error || "Unable to update status");
       }
 
-      setApplications((prev) =>
-        prev.map((app) => (app.id === id ? { ...app, status: newStatus } : app))
-      );
+      await fetchApplications();
       setSelectedApp(null);
       addToast({
         title: "Stage updated",
@@ -299,6 +321,36 @@ export default function DashboardPage() {
       console.error(error);
       addToast({
         title: "Unable to update stage",
+        description: error instanceof Error ? error.message : "Please try again.",
+        tone: "error",
+      });
+    }
+  };
+
+  const handleSetInterviewDate = async (id: string, interviewDate: string) => {
+    try {
+      const res = await fetch(`/api/applications/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          interviewDate: interviewDate ? new Date(interviewDate).toISOString() : null,
+        }),
+        credentials: "include",
+      });
+
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.error || "Unable to update interview date");
+      }
+
+      await fetchApplications();
+      await fetchReminders();
+      setSelectedApp((prev) => (prev ? { ...prev, interviewDate: payload.interviewDate } : prev));
+      addToast({ title: "Interview date updated", tone: "success" });
+    } catch (error) {
+      console.error(error);
+      addToast({
+        title: "Unable to update interview date",
         description: error instanceof Error ? error.message : "Please try again.",
         tone: "error",
       });
@@ -458,6 +510,14 @@ export default function DashboardPage() {
                     Manage users
                   </button>
                 )}
+                <a
+                  href="/api/applications/export"
+                  data-testid="export-csv-button"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </a>
                 <button
                   type="button"
                   data-testid="add-application-button"
@@ -479,6 +539,33 @@ export default function DashboardPage() {
               </div>
             </div>
           </header>
+
+          {reminders.length > 0 && (
+            <div
+              data-testid="reminders-banner"
+              className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4"
+            >
+              <div className="flex items-center gap-2 text-amber-200">
+                <CalendarDays className="h-4 w-4" />
+                <p className="text-sm font-semibold">
+                  {reminders.length} upcoming interview{reminders.length === 1 ? "" : "s"} in the
+                  next 7 days
+                </p>
+              </div>
+              <ul className="mt-2 space-y-1 text-sm text-amber-100/80">
+                {reminders.map((r) => (
+                  <li key={r.id}>
+                    {r.company} — {r.role} on{" "}
+                    {new Date(r.date).toLocaleDateString(undefined, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
@@ -720,7 +807,43 @@ export default function DashboardPage() {
                   <p>{selectedApp.notes}</p>
                 </div>
               ) : null}
+              <div className="rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-300">
+                <label htmlFor="interview-date" className="mb-1 block text-slate-400">
+                  Interview date
+                </label>
+                <input
+                  id="interview-date"
+                  type="date"
+                  data-testid="interview-date-input"
+                  defaultValue={
+                    selectedApp.interviewDate
+                      ? new Date(selectedApp.interviewDate).toISOString().split("T")[0]
+                      : ""
+                  }
+                  onBlur={(e) => handleSetInterviewDate(selectedApp.id, e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-sm text-white [color-scheme:dark]"
+                />
+              </div>
             </div>
+
+            {selectedApp.statusChanges && selectedApp.statusChanges.length > 0 && (
+              <div className="mt-6">
+                <div className="mb-2 flex items-center gap-2 text-sm text-slate-400">
+                  <History className="h-4 w-4" />
+                  Status history
+                </div>
+                <ul className="space-y-1.5 text-xs text-slate-400">
+                  {selectedApp.statusChanges.map((sc) => (
+                    <li key={sc.id} className="flex items-center justify-between">
+                      <span>
+                        {sc.fromStatus ? `${sc.fromStatus} → ${sc.toStatus}` : `Set to ${sc.toStatus}`}
+                      </span>
+                      <span>{new Date(sc.changedAt).toLocaleDateString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="mt-6">
               <p className="mb-2 text-sm text-slate-400">Move to stage</p>

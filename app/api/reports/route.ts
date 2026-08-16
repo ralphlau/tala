@@ -27,7 +27,6 @@ export async function GET() {
 
     const applications = await prisma.application.findMany({
       where: { userId: user.id },
-      include: { interviews: true },
       orderBy: { appliedDate: "asc" },
     });
 
@@ -42,7 +41,7 @@ export async function GET() {
     }
 
     const reachedInterview = applications.filter(
-      (app) => app.interviews.length > 0 || app.status === "Interview" || app.status === "Offer"
+      (app) => app.interviewDate !== null || app.status === "Interview" || app.status === "Offer"
     ).length;
     const reachedOffer = stageCounts.Offer ?? 0;
 
@@ -52,12 +51,9 @@ export async function GET() {
 
     const daysToFirstInterview: number[] = [];
     for (const app of applications) {
-      if (app.interviews.length === 0) continue;
-      const earliest = app.interviews.reduce((min, iv) =>
-        iv.date < min.date ? iv : min
-      );
+      if (!app.interviewDate) continue;
       const days =
-        (new Date(earliest.date).getTime() - new Date(app.appliedDate).getTime()) /
+        (new Date(app.interviewDate).getTime() - new Date(app.appliedDate).getTime()) /
         (1000 * 60 * 60 * 24);
       if (days >= 0) daysToFirstInterview.push(days);
     }

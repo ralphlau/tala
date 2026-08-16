@@ -36,6 +36,16 @@ model Application {
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   interviews    Interview[]
   contacts      Contact[]
+  statusChanges StatusChange[]
+}
+
+model StatusChange {
+  id            String      @id @default(cuid())
+  applicationId String
+  fromStatus    String?
+  toStatus      String
+  changedAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model Interview {
