@@ -3,5 +3,5 @@ import { test, expect } from '@playwright/test';
 test('home page loads', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.locator('h1')).toContainText('HireTrack');
+  await expect(page.locator('h1')).toContainText('TALA');
 });

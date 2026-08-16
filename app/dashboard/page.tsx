@@ -391,7 +391,7 @@ export default function DashboardPage() {
                 HT
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">HireTrack</p>
+                <p className="text-sm font-semibold text-white">TALA</p>
                 <p className="text-sm text-slate-400">Portfolio dashboard</p>
               </div>
             </div>
